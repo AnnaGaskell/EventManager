@@ -31,13 +31,58 @@ def save_thank_you_letter(id, form_letter)
   end
 end
 
-puts 'EventManager initialized.'
+def clean_phone_number(phone_number)
+  phone_number.gsub!(/[^\d]/, '')
+  if phone_number.length == 11 && phone_number[0] == '1'
+    phone_number.slice!(0)
+  elsif phone_number.length > 10 || phone_number.length < 10
+    phone_number = nil
+  else
+    phone_number
+  end
+  puts phone_number
+end
 
-contents = CSV.open(
-  'event_attendees.csv',
-  headers: true,
-  header_converters: :symbol
-)
+def time_target_hour
+  contents = open_csv
+  reg_hour_array = []
+  contents.each do |row|
+    reg_date = row[:regdate]
+    reg_hour = Time.strptime(reg_date, '%m/%d/%y %k:%M').strftime('%k')
+    reg_hour_array.push(reg_hour)
+  end
+  most_common_hour = reg_hour_array.reduce(Hash.new(0)) do |hash, hour|
+    hash[hour] += 1
+    hash
+  end
+  most_common_hour.max_by { |_k, v| v }[0]
+end
+
+def time_target_day
+  contents = open_csv
+  reg_day_array = []
+  contents.each do |row|
+    reg_date = row[:regdate]
+    reg_day = Time.strptime(reg_date, '%m/%d/%y %k:%M').strftime('%A')
+    reg_day_array.push(reg_day)
+  end
+  most_common_day = reg_day_array.reduce(Hash.new(0)) do |hash, day|
+    hash[day] += 1
+    hash
+  end
+  most_common_day.max_by { |_k, v| v }[0]
+end
+
+
+puts 'Event Manager initialized.'
+
+def open_csv
+  contents = CSV.open(
+    'event_attendees.csv',
+    headers: true,
+    header_converters: :symbol
+  )
+end
 
 template_letter = File.read('form_letter.html')
 erb_template = ERB.new template_letter
@@ -50,7 +95,13 @@ contents.each do |row|
 
   legislators = legislators_by_zipcode(zipcode)
 
+  phone_number = clean_phone_number(row[:homephone])
+
   form_letter = erb_template.result(binding)
 
-  save_thank_you_letter(id,form_letter)
+  save_thank_you_letter(id, form_letter)
 end
+
+puts "\nThe most common hour of registration is: #{time_target_hour}:00"
+
+puts "\nThe most common registration day is: #{time_target_day}"
